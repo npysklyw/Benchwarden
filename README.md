@@ -4,12 +4,13 @@ Upgrading an existing installation? Read [rename and data compatibility](docs/re
 before replacing environment files or starting Compose.
 
 An independently developed evaluation and reliability platform for tool-calling
-AI agents. **Current scope: deterministic execution, trace capture, scoring, and run comparison.**
+AI agents. **Current scope: offline evaluation, dashboard, failure replay, and CI gates.**
 Projects, configurations, datasets, cases, and evaluation runs are persisted in
 PostgreSQL. Runs execute offline using a deterministic fake provider and typed
 fictional support tools. Versioned deterministic scorers evaluate explicit test-case
-expectations. Real providers, bulk uploads, replay, and CI thresholds remain deferred.
-The React frontend remains the foundation shell.
+expectations. The React dashboard browses projects, datasets, runs, comparisons,
+and ordered traces, and creates immutable failure replays. Real providers and
+bulk uploads remain deferred.
 
 See [architecture and milestones](docs/architecture.md) for boundaries, proposed
 data-contract decisions, and acceptance criteria. 
@@ -192,7 +193,15 @@ to use `benchwarden run`, `score`, `compare`, `check`, and `seed-ci`.
 The GitHub Actions workflow runs an offline passing gate against PostgreSQL and
 all backend/frontend checks. Tests separately assert that controlled regressions fail.
 
+## Dashboard and failure replay
+
+Open `http://localhost:5173` after starting the backend and frontend. See
+[dashboard and replay](docs/dashboard-replay.md) for routes, local startup,
+snapshot/lineage guarantees, generated API types, and limitations. Newly created
+runs support replay of failed or errored cases; legacy runs without configuration
+snapshots deliberately return a conflict.
+
 ## Next milestone
 
-Add failure replay and result inspection using existing stored traces. Durable
-execution recovery, release dependency locking, and CI report publishing remain follow-ups.
+Add durable execution recovery and interruption handling. Release dependency
+locking and CI report publishing remain follow-ups.

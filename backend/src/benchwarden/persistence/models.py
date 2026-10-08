@@ -161,6 +161,9 @@ class EvaluationRun(Record):
     error: Mapped[str | None] = mapped_column(Text)
     pricing_snapshot: Mapped[dict[str, JsonValue] | None] = mapped_column(JSONB(none_as_null=True))
     scoring_version: Mapped[str | None] = mapped_column(String(50))
+    configuration_snapshot: Mapped[dict[str, JsonValue] | None] = mapped_column(
+        JSONB(none_as_null=True)
+    )
     case_results: Mapped[list["CaseResult"]] = relationship(
         back_populates="run", passive_deletes="all"
     )
@@ -203,6 +206,9 @@ class CaseResult(Record):
         return outcome(self)
 
     run_id: Mapped[UUID] = mapped_column(index=True)
+    replay_of: Mapped[UUID | None] = mapped_column(
+        ForeignKey("case_results.id", ondelete="RESTRICT"), index=True
+    )
     dataset_id: Mapped[UUID] = mapped_column()
     test_case_id: Mapped[UUID] = mapped_column(index=True)
     status: Mapped[CaseStatus] = mapped_column(

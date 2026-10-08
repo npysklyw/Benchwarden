@@ -129,7 +129,14 @@ There is no generic repository layer. Shared route helpers cover repeated lookup
 pagination, transaction conflict handling, and field updates only. Application use
 cases now live in `application/evaluations.py`, separate from the API transport.
 
-Deferred: real providers, bulk imports, replay, full revision lineage, retry
+Deferred: real providers, bulk imports, full revision lineage, automatic retry
 attempts, durable recovery, authentication, billing, and production deployment.
 Deterministic scoring and compatible-run comparison are implemented; see
 [scoring and comparison](scoring.md) for schema additions and API contracts.
+
+Migration `38a719bc62df` adds sanitized configuration snapshots to newly created
+runs and indexed, restrictive `case_results.replay_of` lineage. Replay copies the
+source input, expectations, configuration, pricing, and scorer version into a new
+one-case run. Existing records are not backfilled; legacy runs without snapshots
+cannot replay. See [dashboard and replay](dashboard-replay.md) for the lifecycle,
+API, downgrade behavior, and immutability limits.

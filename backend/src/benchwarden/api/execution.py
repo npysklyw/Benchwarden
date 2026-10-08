@@ -2,6 +2,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, HTTPException
 from sqlalchemy import select
+from sqlalchemy.orm import selectinload
 
 from benchwarden.api import schemas as s
 from benchwarden.api.routes import DB, Limit, Offset, get_record, page
@@ -14,11 +15,38 @@ from benchwarden.application.evaluations import (
     case_counts,
     create_run,
 )
+from benchwarden.application.replay import replay_result
 from benchwarden.application.scoring import ScoringConflict, results_for_run, score_run
-from benchwarden.persistence.models import CaseResult, EvaluationRun
+from benchwarden.persistence.models import CaseResult, EvaluationRun, Project
 from benchwarden.scoring.metrics import RunMetrics, aggregate
 
 router = APIRouter(tags=["evaluations"])
+
+
+@router.get("/projects/{project_id}/runs", response_model=s.Page[s.EvaluationRunResponse])
+def list_runs(
+    project_id: UUID, session: DB, limit: Limit = 20, offset: Offset = 0
+) -> s.Page[s.EvaluationRunResponse]:
+    get_record(session, Project, project_id)
+    return page(
+        session,
+        select(EvaluationRun).where(EvaluationRun.project_id == project_id),
+        s.EvaluationRunResponse,
+        limit,
+        offset,
+    )
+
+
+@router.post("/results/{result_id}/replay", response_model=s.RunDetail, status_code=201)
+def replay(result_id: UUID, payload: s.Request, session: DB) -> s.RunDetail:
+    try:
+        return run_detail(session, replay_result(session, result_id))
+    except ResourceNotFound as exc:
+        session.rollback()
+        raise HTTPException(404, str(exc)) from exc
+    except (ExecutionConflict, InvalidEvaluation, ScoringConflict) as exc:
+        session.rollback()
+        raise HTTPException(409, str(exc)) from exc
 
 
 def run_detail(session: DB, run: EvaluationRun) -> s.RunDetail:
@@ -73,7 +101,9 @@ def list_results(
     get_record(session, EvaluationRun, run_id)
     return page(
         session,
-        select(CaseResult).where(CaseResult.run_id == run_id),
+        select(CaseResult)
+        .where(CaseResult.run_id == run_id)
+        .options(selectinload(CaseResult.scoring_results)),
         s.CaseResultResponse,
         limit,
         offset,

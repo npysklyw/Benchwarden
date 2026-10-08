@@ -186,6 +186,7 @@ class CaseResultCreate(Request):
 
 
 class CaseResultResponse(RecordResponse):
+    replay_of: UUID | None
     evaluation_outcome: Literal["passed", "failed", "not_scored"]
     expectations_snapshot: list[Expectation] | None
     scored_at: AwareDatetime | None

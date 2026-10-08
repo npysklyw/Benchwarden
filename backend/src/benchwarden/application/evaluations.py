@@ -4,7 +4,7 @@ from copy import deepcopy
 from datetime import UTC, datetime
 from uuid import UUID
 
-from pydantic import ValidationError
+from pydantic import JsonValue, ValidationError
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
@@ -75,6 +75,17 @@ def validate_agent(agent: AgentConfiguration) -> None:
         raise InvalidEvaluation("Unsupported fake_variant configuration")
 
 
+def configuration_snapshot(agent: AgentConfiguration) -> dict[str, JsonValue]:
+    return TraceSanitizer(agent.parameters, agent.system_prompt).object(
+        {
+            "provider": agent.provider,
+            "model_name": agent.model_name,
+            "system_prompt": agent.system_prompt,
+            "parameters": agent.parameters,
+        }
+    )
+
+
 def create_run(
     session: Session, project_id: UUID, agent_id: UUID, dataset_id: UUID
 ) -> EvaluationRun:
@@ -117,6 +128,7 @@ def create_run(
         dataset_id=dataset_id,
         pricing_snapshot=deepcopy(agent.pricing),
         scoring_version=VERSION,
+        configuration_snapshot=configuration_snapshot(agent),
     )
     session.add(run)
     session.flush()
@@ -195,6 +207,8 @@ class EvaluationService:
         if run.status != RunStatus.PENDING:
             raise ExecutionConflict("Only pending runs can execute; create a new run to retry")
         agent = require(session, AgentConfiguration, run.agent_configuration_id)
+        if run.configuration_snapshot is not None:
+            agent = AgentConfiguration(project_id=run.project_id, **run.configuration_snapshot)
         dataset = require(session, EvaluationDataset, run.dataset_id)
         require(session, Project, run.project_id)
         validate_agent(agent)
@@ -211,7 +225,8 @@ class EvaluationService:
         case_ids = set(
             session.scalars(select(TestCase.id).where(TestCase.dataset_id == run.dataset_id))
         )
-        if not results or {result.test_case_id for result in results} != case_ids:
+        replay = len(results) == 1 and results[0].replay_of is not None
+        if not results or (not replay and {result.test_case_id for result in results} != case_ids):
             raise InvalidEvaluation("Run cases do not match the dataset; create a new run")
         if any(result.status != CaseStatus.PENDING for result in results):
             raise ExecutionConflict("Run contains cases that already started")
@@ -221,16 +236,17 @@ class EvaluationService:
 
         for result in results:
             case = require(session, TestCase, result.test_case_id)
-            sanitizer = TraceSanitizer(case.input, agent.parameters, agent.system_prompt)
+            execution_input = result.input_snapshot if replay else case.input
+            sanitizer = TraceSanitizer(execution_input, agent.parameters, agent.system_prompt)
             request = ModelRequest(
                 model=agent.model_name,
                 system_prompt=agent.system_prompt,
                 parameters=agent.parameters,
-                input=case.input,
+                input=execution_input,
             )
             validate_case_transition(result.status, CaseStatus.RUNNING)
             result.status, result.started_at = CaseStatus.RUNNING, datetime.now(UTC)
-            result.input_snapshot = sanitizer.object(case.input)
+            result.input_snapshot = sanitizer.object(execution_input)
             result.provider, result.model_name = (
                 agent.provider,
                 sanitizer.text(agent.model_name)[:200],

@@ -71,9 +71,9 @@ for local development; production serving and routing are deferred.
 - **Scoring and CI:** distinguish incorrect answers, invalid tool use, and
   infrastructure failures. Specify denominators, empty dataset behavior, threshold
   comparison, and exit codes before users depend on pass/fail results.
-- **Replay semantics:** recorded replay displays stored events without executing
-  tools; rerun creates a new run and may produce different results. Real external
-  side effects are out of scope for the initial fake-tool implementation.
+- **Replay semantics:** trace inspection only reads recorded events. Failure replay
+  creates a new one-case execution with explicit lineage and historical snapshots.
+  Real external side effects are out of scope for the offline fake tools.
 - **Execution durability:** start with bounded synchronous execution and persisted
   statuses. Specify interrupted-run behavior before introducing background runs;
   in-process fire-and-forget work is not a durable queue.
@@ -101,9 +101,10 @@ identifies the exact current guarantees and remaining work.
 4. **Scoring (complete):** add exact-match correctness and expected tool-use scoring, versioned
    scorer configuration, and threshold evaluation. Acceptance: known fixtures cover
    pass/fail boundaries, missing answers, infrastructure errors, and empty datasets.
-5. **Comparison (complete) and replay (deferred):** list runs, compare versions on a shared dataset
-   revision, inspect case details, and replay recorded failures. Acceptance: replay
-   never calls a model or tool; incompatible comparisons are clearly identified.
+5. **Comparison, dashboard, and replay (complete):** browse experiments, inspect
+   traces, compare compatible runs, and replay failures through the fake provider.
+   Acceptance: replay creates distinct recorded executions without mutating originals;
+   incompatible comparisons and missing historical snapshots are clearly identified.
 6. **CI integration (complete):** add a CLI over the same use cases, JSON results, deterministic
    fixtures, and a sample CI workflow. Acceptance: passing, failing, and execution
    error runs return documented distinct exit codes without any API key.

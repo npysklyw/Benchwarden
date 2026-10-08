@@ -252,7 +252,9 @@ status `failed`. The rates are fictional test fixtures, not vendor pricing.
 5. Document the contract and update comparison compatibility tests. Do not change
    execution statuses or edit existing scores.
 
-LLM judges, weighted/optional assertions, cross-dataset lineage, frontend screens,
+LLM judges, weighted/optional assertions, cross-dataset lineage,
 real provider pricing adapters, and durable worker recovery remain deferred.
 [CLI and CI gates](cli-ci.md) now enforce policies using these explicit coverage
 and success denominators.
+The [dashboard](dashboard-replay.md) renders these metrics and verdicts and can
+replay failures without overwriting historical scores.
